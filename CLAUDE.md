@@ -64,13 +64,18 @@ Both layers are tested.
 pytest
 
 # JavaScript game-logic tests
-npm test            # configure a runner (e.g. Vitest/Jest) in package.json
+npm install         # one-time: install Vitest
+npm test            # run once
+npm run test:watch  # watch mode while developing
 ```
 
 - Backend: **pytest**, tests in `tests/`.
-- Frontend: a JS test runner for pure game-logic modules (keep logic separable from
-  the DOM so it can be unit-tested). The test runner is dev-only and does **not** add
-  a build step to the shipped game.
+- Frontend: **Vitest** for pure game-logic modules, tests in `static/js/__tests__/`.
+  Vitest runs ES modules natively, so it needs no Babel/bundler config. It is a
+  dev-only dependency and does **not** add a build step to the shipped game — the
+  browser loads the same plain JS modules directly.
+- Keep game logic separable from the DOM (pure functions that take/return data) so it
+  can be unit-tested without a browser.
 
 Run the relevant test suite after changes and report real results — if something
 fails or was skipped, say so.
