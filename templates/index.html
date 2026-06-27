@@ -9,11 +9,24 @@
   <body>
     <main class="game">
       <h1>🐔 Chicken Farm</h1>
+
+<pre id="chicken" class="chicken-art" aria-hidden="true">
+        _
+      _( )_
+     ( o   )>
+      (___)
+      /   \
+     |     |
+     '-----'
+</pre>
+
       <p class="chickens"><span id="chickens">0</span> 🐔</p>
       <p class="rate"><span id="per-second">0</span>/sec &middot; +<span id="per-click">1</span>/collect</p>
 
       <div class="controls">
-        <button id="collect-btn" type="button" class="collect">Collect a chicken</button>
+        <div class="collect-area">
+          <button id="collect-btn" type="button" class="collect">Collect a chicken</button>
+        </div>
       </div>
 
       <section class="shop">

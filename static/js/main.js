@@ -22,9 +22,29 @@ const els = {
   perSecond: document.getElementById("per-second"),
   perClick: document.getElementById("per-click"),
   collectBtn: document.getElementById("collect-btn"),
+  collectArea: document.querySelector(".collect-area"),
+  chicken: document.getElementById("chicken"),
   resetBtn: document.getElementById("reset-btn"),
   shopList: document.getElementById("shop-list"),
 };
+
+// Spawn a rising "+N" above the collect button.
+function floatGain(amount) {
+  const el = document.createElement("span");
+  el.className = "float-num";
+  el.textContent = `+${amount}`;
+  // Spread successive floats horizontally so rapid clicks don't overlap.
+  el.style.marginLeft = `${Math.round((Math.random() - 0.5) * 40)}px`;
+  els.collectArea.append(el);
+  el.addEventListener("animationend", () => el.remove(), { once: true });
+}
+
+// Restart a one-shot animation by toggling its class.
+function replay(el, cls) {
+  el.classList.remove(cls);
+  void el.offsetWidth; // force reflow so the animation can re-trigger
+  el.classList.add(cls);
+}
 
 // Build the shop once; cache each row's elements so render() only updates text
 // and the disabled state rather than rebuilding the DOM every frame.
@@ -68,9 +88,13 @@ function render() {
 }
 
 els.collectBtn.addEventListener("click", () => {
+  const gain = perClick(state);
   state = click(state);
   save(state);
   render();
+  floatGain(gain);
+  replay(els.chicken, "wiggle");
+  replay(els.collectBtn, "pop");
 });
 
 els.resetBtn.addEventListener("click", () => {
