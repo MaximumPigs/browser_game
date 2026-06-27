@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>browser_game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body>
+    <main class="game">
+      <h1>browser_game</h1>
+      <p class="points"><span id="points">0</span> points</p>
+      <p class="rate"><span id="per-second">0</span>/sec</p>
+
+      <div class="controls">
+        <button id="click-btn" type="button">Click (+<span id="per-click">1</span>)</button>
+        <button id="reset-btn" type="button" class="secondary">Reset</button>
+      </div>
+    </main>
+
+    <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+  </body>
+</html>
