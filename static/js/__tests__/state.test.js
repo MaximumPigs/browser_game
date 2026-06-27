@@ -23,6 +23,10 @@ describe("newGame", () => {
     const state = newGame();
     expect(Object.values(state.upgrades).every((n) => n === 0)).toBe(true);
   });
+
+  it("starts with zero lifetime chickens", () => {
+    expect(newGame().lifetime).toBe(0);
+  });
 });
 
 describe("perClick / perSecond", () => {
@@ -48,12 +52,22 @@ describe("click", () => {
     expect(next.chickens).toBe(1);
     expect(state.chickens).toBe(0); // original untouched
   });
+
+  it("also accrues lifetime chickens", () => {
+    const next = click(newGame());
+    expect(next.lifetime).toBe(1);
+  });
 });
 
 describe("tick", () => {
   it("adds perSecond * seconds chickens", () => {
     const state = { ...newGame(), upgrades: { ...newGame().upgrades, coop: 5 } };
     expect(tick(state, 3).chickens).toBe(15); // 5/sec * 3s
+  });
+
+  it("also accrues lifetime chickens", () => {
+    const state = { ...newGame(), upgrades: { ...newGame().upgrades, coop: 5 } };
+    expect(tick(state, 3).lifetime).toBe(15);
   });
 });
 
@@ -95,6 +109,11 @@ describe("migrate", () => {
     expect(migrated.chickens).toBe(42);
     expect(migrated.upgrades.coop).toBe(0);
     expect(migrated.version).toBe(SAVE_VERSION);
+  });
+
+  it("seeds lifetime from current chickens when absent", () => {
+    expect(migrate({ chickens: 42 }).lifetime).toBe(42);
+    expect(migrate({ chickens: 5, lifetime: 900 }).lifetime).toBe(900);
   });
 
   it("carries v1 `points` over to `chickens`", () => {

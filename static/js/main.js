@@ -13,8 +13,10 @@ import {
 } from "./state.js";
 import { load, save, clear } from "./save.js";
 import { format } from "./format.js";
+import { stageFor, tickerLine } from "./narrative.js";
 
 const TICK_MS = 1000;
+const TICKER_MS = 9000;
 
 let state = load();
 
@@ -27,7 +29,17 @@ const els = {
   chicken: document.getElementById("chicken"),
   resetBtn: document.getElementById("reset-btn"),
   shopList: document.getElementById("shop-list"),
+  ticker: document.getElementById("ticker"),
 };
+
+// Rotate the flavor ticker on its own timer (not in render(), which runs every
+// frame). The line shown depends on the player's current narrative stage.
+function showTicker() {
+  const stage = stageFor(state.lifetime);
+  const index = Math.floor(Math.random() * 1e6);
+  els.ticker.textContent = tickerLine(stage, index);
+  replay(els.ticker, "fade-in");
+}
 
 // Spawn a rising, fading bit of text anchored inside `container`
 // (which must be position: relative).
@@ -126,4 +138,8 @@ setInterval(() => {
   render();
 }, TICK_MS);
 
+// Rotating flavor ticker.
+setInterval(showTicker, TICKER_MS);
+
 render();
+showTicker();

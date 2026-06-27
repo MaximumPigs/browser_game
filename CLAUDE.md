@@ -14,6 +14,22 @@ The upgrade catalogue lives in `UPGRADES` in `static/js/state.js`; add new conte
 extending that array (cost/growth/effects are data-driven, and the shop UI renders
 itself from it).
 
+### Narrative layer (spoilers)
+
+Under the wholesome surface, the game has a slow-burn creepypasta arc: it looks like
+an ordinary clicker, then progressively and subtly turns dark. The intended payoff is
+an **unreliable narrator** — *nothing about the farm actually changes*; every
+distortion (rotting flavor text, corrupted art, the game seeming to "know" things) is
+the **player character's descent into madness**. Keep that framing when writing new
+content: the voice is the player's decaying perception, not a sentient farm.
+
+- Progression is gated on `lifetime` (total chickens ever collected) — the deeper in,
+  the further gone — computed into a stage by `stageFor()` in `static/js/narrative.js`.
+- Story content (e.g. `TICKERS`) is **data keyed by stage**; stages without content
+  fall back to Stage 0, so the game stays ordinary until later stages are authored.
+- `narrative.js` is pure (no DOM/time/randomness — callers pass an index in) and
+  unit-tested. Currently only **Stage 0** (wholesome) is implemented.
+
 - **Frontend:** vanilla JavaScript, HTML, and CSS — **no framework, no build step**.
 - **Backend:** Python with **Flask**, serving the static frontend and a small JSON API.
 - **Game saves:** persisted **client-side in the browser via `localStorage`**. The
