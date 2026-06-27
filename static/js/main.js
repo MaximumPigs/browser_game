@@ -11,7 +11,7 @@ import {
   perClick,
   perSecond,
 } from "./state.js";
-import { load, save, clear } from "./save.js";
+import { load, save, clear, loadMemory, saveMemory } from "./save.js";
 import { format } from "./format.js";
 import {
   stageFor,
@@ -19,12 +19,40 @@ import {
   artFor,
   describeUpgrade,
   returnMessage,
+  nightLine,
+  idleLine,
+  collectFlicker,
+  resetGreeting,
+  glitchArt,
 } from "./narrative.js";
 
 const TICK_MS = 1000;
 const TICKER_MS = 9000;
+const GLITCH_MS = 6000; // how often we *consider* a one-frame art glitch
+const FLICKER_MS = 7000; // how often we *consider* a collect-button flicker
 
 let state = load();
+
+// Persistent memory that survives Reset (Stage 3 "it remembers you").
+let memory = loadMemory();
+
+// Loading a save is itself a high-water mark — record it immediately so the
+// memory reflects this run even before the first tick, and so an instant Reset
+// still remembers the flock.
+if ((state.lifetime || 0) > (memory.peakLifetime || 0)) {
+  memory.peakLifetime = state.lifetime;
+  saveMemory(memory);
+}
+
+// The effective stage never drops below what the player has already reached,
+// even after a Reset — the madness doesn't wipe with the save.
+function currentStage() {
+  return stageFor(Math.max(state.lifetime || 0, memory.peakLifetime || 0));
+}
+
+// Time of the player's last manual interaction, for idle-aware lines.
+let lastActivity = Date.now();
+const idleSeconds = () => (Date.now() - lastActivity) / 1000;
 
 // How long the player was away since their last session (seconds). Captured
 // before any save re-stamps `lastSeen`. Drives the Stage 2+ return message.
@@ -32,10 +60,15 @@ const awaySeconds = state.lastSeen
   ? Math.max(0, (Date.now() - state.lastSeen) / 1000)
   : 0;
 
-// Save, stamping the time so the next visit can tell how long they were gone.
+// Save, stamping the time so the next visit can tell how long they were gone,
+// and recording the high-water mark in the memory that outlives Reset.
 function persist() {
   state.lastSeen = Date.now();
   save(state);
+  if ((state.lifetime || 0) > (memory.peakLifetime || 0)) {
+    memory.peakLifetime = state.lifetime;
+    saveMemory(memory);
+  }
 }
 
 // Cache the last art frame applied so render() only touches the DOM on change.
@@ -54,11 +87,20 @@ const els = {
 };
 
 // Rotate the flavor ticker on its own timer (not in render(), which runs every
-// frame). The line shown depends on the player's current narrative stage.
+// frame). The line shown depends on the player's current narrative stage; from
+// Stage 3 the game sometimes "knows" the hour or that you've gone quiet.
 function showTicker() {
-  const stage = stageFor(state.lifetime);
+  const stage = currentStage();
   const index = Math.floor(Math.random() * 1e6);
-  els.ticker.textContent = tickerLine(stage, index);
+
+  let line = null;
+  if (stage >= 3 && Math.random() < 0.5) {
+    line =
+      idleLine(idleSeconds(), index) ||
+      nightLine(new Date().getHours(), index);
+  }
+
+  els.ticker.textContent = line || tickerLine(stage, index);
   replay(els.ticker, "fade-in");
 }
 
@@ -130,7 +172,7 @@ const rows = UPGRADES.map((u) => {
 });
 
 function render() {
-  const stage = stageFor(state.lifetime);
+  const stage = currentStage();
 
   els.chickens.textContent = format(state.chickens);
   els.perSecond.textContent = format(perSecond(state));
@@ -153,6 +195,7 @@ function render() {
 }
 
 els.collectBtn.addEventListener("click", () => {
+  lastActivity = Date.now();
   const gain = perClick(state);
   state = click(state);
   persist();
@@ -164,9 +207,22 @@ els.collectBtn.addEventListener("click", () => {
 
 els.resetBtn.addEventListener("click", () => {
   if (!confirm("Reset your farm? This clears all progress.")) return;
+  // The flock is forgotten; the memory of it is not.
+  memory.resets = (memory.resets || 0) + 1;
+  saveMemory(memory);
   clear();
   state = load();
   render();
+  // The wipe should feel clean — until it doesn't.
+  const greeting = resetGreeting(
+    currentStage(),
+    memory.peakLifetime,
+    memory.resets,
+  );
+  if (greeting) {
+    els.ticker.textContent = greeting;
+    replay(els.ticker, "fade-in");
+  }
 });
 
 // Idle/incremental progress.
@@ -179,13 +235,47 @@ setInterval(() => {
 // Rotating flavor ticker.
 setInterval(showTicker, TICKER_MS);
 
+// Occasional one-frame ASCII glitch (Stage 2+): nudge a few lines out of
+// alignment, then snap back. Random offsets each time so it never repeats.
+function maybeGlitch() {
+  if (currentStage() < 2 || Math.random() > 0.5) return;
+  const base = artFor(currentStage());
+  const offsets = base.split("\n").map(() => {
+    if (Math.random() > 0.4) return 0; // most lines stay put
+    return (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 2));
+  });
+  els.chicken.textContent = glitchArt(base, offsets);
+  // Restore to the true frame next frame; render() can't fight us because
+  // shownArt still matches the real art.
+  setTimeout(() => {
+    els.chicken.textContent = artFor(currentStage());
+  }, 110);
+}
+setInterval(maybeGlitch, GLITCH_MS);
+
+// Occasional collect-button flicker (Stage 3+): a verb of compulsion flashes
+// over the friendly label, then reverts.
+const COLLECT_LABEL = "Collect a chicken";
+function maybeFlicker() {
+  if (currentStage() < 3 || Math.random() > 0.45) return;
+  const alt = collectFlicker(currentStage(), Math.floor(Math.random() * 1e6));
+  if (!alt) return;
+  els.collectBtn.textContent = alt;
+  setTimeout(() => {
+    els.collectBtn.textContent = COLLECT_LABEL;
+  }, 300);
+}
+setInterval(maybeFlicker, FLICKER_MS);
+
 render();
 
-// On return after an absence, the ticker first shows the "missing" message
-// (Stage 2+), then normal rotation resumes on the next interval.
-const returned = returnMessage(stageFor(state.lifetime), awaySeconds);
-if (returned) {
-  els.ticker.textContent = returned;
+// First ticker line on load. A post-Reset return ("we remember you") wins over
+// the "while you were away" message, which wins over a normal flavor line.
+const greeting =
+  resetGreeting(currentStage(), memory.peakLifetime, memory.resets) ||
+  returnMessage(currentStage(), awaySeconds);
+if (greeting) {
+  els.ticker.textContent = greeting;
   replay(els.ticker, "fade-in");
 } else {
   showTicker();

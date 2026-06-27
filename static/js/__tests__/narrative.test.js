@@ -10,6 +10,12 @@ import {
   UPGRADE_DESCRIPTIONS,
   returnMessage,
   missingCount,
+  nightLine,
+  idleLine,
+  collectFlicker,
+  COLLECT_FLICKER,
+  resetGreeting,
+  glitchArt,
 } from "../narrative.js";
 
 describe("stageFor", () => {
@@ -42,7 +48,8 @@ describe("tickerPool", () => {
   });
 
   it("reuses unlocked lines for stages with no new content", () => {
-    expect(tickerPool(5)).toEqual(tickerPool(1));
+    expect(tickerPool(2)).toEqual(tickerPool(1)); // Stage 2 adds no lines
+    expect(tickerPool(5)).toEqual(tickerPool(3)); // Stages 4-5 add no lines
   });
 
   it("keeps Stage 0 lines first so index 0 stays wholesome", () => {
@@ -119,5 +126,67 @@ describe("returnMessage", () => {
 
   it("reports missing chickens after a real absence at Stage 2+", () => {
     expect(returnMessage(2, 180)).toBe("While you were away, 3 went missing.");
+  });
+});
+
+describe("nightLine", () => {
+  it("fires only in the small hours", () => {
+    expect(nightLine(2, 0)).not.toBe(null);
+    expect(nightLine(23, 0)).not.toBe(null);
+    expect(nightLine(14, 0)).toBe(null);
+  });
+});
+
+describe("idleLine", () => {
+  it("fires only once the player has been still a while", () => {
+    expect(idleLine(10, 0)).toBe(null);
+    expect(idleLine(60, 0)).not.toBe(null);
+  });
+});
+
+describe("collectFlicker", () => {
+  it("is silent before Stage 3", () => {
+    expect(collectFlicker(2, 0)).toBe(null);
+  });
+
+  it("returns an alternate label from Stage 3 on", () => {
+    expect(COLLECT_FLICKER[3]).toContain(collectFlicker(3, 0));
+    expect(COLLECT_FLICKER[3]).toContain(collectFlicker(5, 1));
+  });
+});
+
+describe("resetGreeting", () => {
+  it("stays silent before Stage 3, with no resets, or nothing remembered", () => {
+    expect(resetGreeting(2, 100000, 1)).toBe(null);
+    expect(resetGreeting(3, 100000, 0)).toBe(null);
+    expect(resetGreeting(3, 0, 1)).toBe(null);
+  });
+
+  it("remembers the peak flock after a wipe at Stage 3+", () => {
+    expect(resetGreeting(3, 80000, 1)).toBe(
+      "Welcome back. We waited. All 80k of us.",
+    );
+  });
+});
+
+describe("glitchArt", () => {
+  const art = ["abc", "def", "ghi"].join("\n");
+
+  it("leaves lines with offset 0 untouched", () => {
+    expect(glitchArt(art, [0, 0, 0])).toBe(art);
+  });
+
+  it("indents lines with a positive offset", () => {
+    expect(glitchArt(art, [0, 2, 0]).split("\n")[1]).toBe("  def");
+  });
+
+  it("pulls lines left with a negative offset, only eating spaces", () => {
+    const indented = ["  ab", "cd"].join("\n");
+    // line 0 has 2 leading spaces: -3 removes at most those 2, not the 'a'
+    expect(glitchArt(indented, [-3, 0]).split("\n")[0]).toBe("ab");
+  });
+
+  it("tolerates a short/missing offsets array", () => {
+    expect(glitchArt(art, [])).toBe(art);
   });
 });

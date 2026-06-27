@@ -6,6 +6,8 @@
 // art, the game seeming to "know" things) is the player's own mind coming
 // apart. The voice you read is the player's perception, not the world.
 //
+import { format } from "./format.js";
+
 // Stage is driven by `lifetime` (total chickens ever collected): the deeper
 // they get, the further gone they are. Stages 0-1 have content; higher stages
 // reuse the lines unlocked so far until their own content is written.
@@ -54,7 +56,47 @@ export const TICKERS = {
     "The clucking almost sounds like words.",
     "Your hand keeps moving after you stop.",
   ],
+  // Stage 3 — it addresses you directly. No more deniability: the narrator
+  // watches itself from outside and doesn't like what it sees. (Stage 2 adds
+  // no new ticker lines; its horror is visual.)
+  3: [
+    "You're still here.",
+    "Why do you keep counting?",
+    "You stopped feeding yourself days ago.",
+    "Your reflection is holding a chicken too.",
+    "They line up the way you taught them.",
+    "You can stop whenever you want. You won't.",
+  ],
 };
+
+// Context-aware lines the game surfaces when it "knows" something — these are
+// the player's own awareness curdling, not the farm acting. Used only at
+// Stage 3+; callers supply the real clock / idle time.
+export const NIGHT_LINES = [
+  "It's late. Why are you still collecting?",
+  "Everyone else is asleep. Not you. Not them.",
+  "The dark doesn't bother you anymore.",
+];
+
+export const IDLE_LINES = [
+  "Still there? They can tell.",
+  "Stopping won't help.",
+  "They noticed you went quiet.",
+];
+
+const pick = (arr, index) =>
+  arr[((index % arr.length) + arr.length) % arr.length];
+
+/** A late-night line if `hour` (0-23) is in the small hours, else null. */
+export function nightLine(hour, index) {
+  const late = hour >= 23 || hour < 5;
+  return late ? pick(NIGHT_LINES, index) : null;
+}
+
+/** An "you went idle" line once the player has been still a while, else null. */
+export function idleLine(idleSeconds, index) {
+  return idleSeconds >= 45 ? pick(IDLE_LINES, index) : null;
+}
 
 /**
  * The cumulative pool of ticker lines visible at `stage`: every line unlocked
@@ -154,4 +196,61 @@ export function missingCount(elapsedSeconds) {
 export function returnMessage(stage, elapsedSeconds) {
   if (stage < 2 || elapsedSeconds < 60) return null;
   return `While you were away, ${missingCount(elapsedSeconds)} went missing.`;
+}
+
+// --- Collect button flicker --------------------------------------------------
+
+// Alternate labels the collect button briefly flickers to at Stage 3+. The
+// verbs turn from tending into compulsion.
+export const COLLECT_FLICKER = {
+  3: ["Collect", "Feed it", "Again", "Don't stop", "Just one more"],
+};
+
+/**
+ * A momentary alternate label for the collect button at `stage`, or null if
+ * this stage doesn't flicker. Caller decides when (and how briefly) to show it.
+ */
+export function collectFlicker(stage, index) {
+  for (let s = stage; s >= 0; s--) {
+    if (COLLECT_FLICKER[s]) return pick(COLLECT_FLICKER[s], index);
+  }
+  return null;
+}
+
+// --- Reset greeting ----------------------------------------------------------
+
+/**
+ * Greeting shown on a fresh start that followed a wipe — the farm remembering
+ * the player it isn't supposed to. Null before Stage 3 or with nothing
+ * remembered. `peakLifetime` is the largest flock ever reached.
+ */
+export function resetGreeting(stage, peakLifetime, resets) {
+  if (stage < 3 || resets < 1 || peakLifetime <= 0) return null;
+  return `Welcome back. We waited. All ${format(peakLifetime)} of us.`;
+}
+
+// --- ASCII art glitch --------------------------------------------------------
+
+/**
+ * Return a one-frame "glitched" version of `art`: each line is nudged
+ * horizontally by the matching entry in `offsets` (positive = indent, negative
+ * = pull left by removing leading spaces). Randomness lives in the caller — it
+ * generates the offsets — so this stays pure and testable. Lines with offset 0
+ * (or missing) are untouched.
+ */
+export function glitchArt(art, offsets) {
+  return art
+    .split("\n")
+    .map((line, i) => {
+      const off = offsets[i] || 0;
+      if (off > 0) return " ".repeat(off) + line;
+      if (off < 0) {
+        let drop = 0;
+        const max = -off;
+        while (drop < max && drop < line.length && line[drop] === " ") drop++;
+        return line.slice(drop);
+      }
+      return line;
+    })
+    .join("\n");
 }

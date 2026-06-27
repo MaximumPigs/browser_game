@@ -39,6 +39,16 @@ content: the voice is the player's decaying perception, not a sentient farm.
     upgrade descriptions gain a darker second reading, and returning after an absence
     shows "while you were away, N went missing." The missing count is **imagined** —
     it never actually leaves the save (`state.lastSeen` drives the elapsed-time calc).
+  - **3** (75,000 lifetime) — *it knows you*. Ticker lines address the player
+    directly and, via `nightLine`/`idleLine`, react to the **real clock** and how long
+    you've sat idle. The collect button **flickers** to verbs of compulsion. **Reset
+    no longer truly resets**: a separate `browser_game.memory` store (`loadMemory`/
+    `saveMemory`, which `clear()` deliberately leaves alone) keeps `peakLifetime` +
+    `resets`, so the wiped farm greets the returning player and the **effective stage
+    never drops** below the peak reached (`currentStage()` in `main.js`). It's the
+    player's mind that can't start over, not the farm.
+- **ASCII glitch**: from Stage 2, `glitchArt(art, offsets)` produces a one-frame
+  misaligned chicken; `main.js` generates random offsets each time so it never repeats.
 
 - **Frontend:** vanilla JavaScript, HTML, and CSS — **no framework, no build step**.
 - **Backend:** Python with **Flask**, serving the static frontend and a small JSON API.
