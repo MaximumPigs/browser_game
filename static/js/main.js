@@ -24,6 +24,8 @@ import {
   collectFlicker,
   resetGreeting,
   glitchArt,
+  counterLabel,
+  pageTitle,
 } from "./narrative.js";
 
 const TICK_MS = 1000;
@@ -81,6 +83,7 @@ const els = {
   collectBtn: document.getElementById("collect-btn"),
   collectArea: document.querySelector(".collect-area"),
   chicken: document.getElementById("chicken"),
+  chickenLabel: document.getElementById("chicken-label"),
   resetBtn: document.getElementById("reset-btn"),
   shopList: document.getElementById("shop-list"),
   ticker: document.getElementById("ticker"),
@@ -173,10 +176,13 @@ const rows = UPGRADES.map((u) => {
 
 function render() {
   const stage = currentStage();
+  const label = counterLabel(stage);
 
   els.chickens.textContent = format(state.chickens);
   els.perSecond.textContent = format(perSecond(state));
   els.perClick.textContent = format(perClick(state));
+  els.chickenLabel.textContent = label;
+  document.title = pageTitle(stage);
 
   // Swap the ASCII art only when the stage's frame actually changes.
   const art = artFor(stage);
@@ -188,7 +194,7 @@ function render() {
   for (const row of rows) {
     const id = row.upgrade.id;
     row.owned.textContent = `×${state.upgrades[id] || 0}`;
-    row.btn.textContent = `Buy (${format(costOf(state, id))} 🐔)`;
+    row.btn.textContent = `Buy (${format(costOf(state, id))} ${label})`;
     row.btn.disabled = !canAfford(state, id);
     row.desc.textContent = describeUpgrade(stage, id, row.upgrade.description);
   }

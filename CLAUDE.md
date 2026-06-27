@@ -47,6 +47,12 @@ content: the voice is the player's decaying perception, not a sentient farm.
     `resets`, so the wiped farm greets the returning player and the **effective stage
     never drops** below the peak reached (`currentStage()` in `main.js`). It's the
     player's mind that can't start over, not the farm.
+  - **4** (500,000 lifetime) — *the framing flips*. The art corrupts further (a
+    second eye, broken legs via `ART[4]`), upgrade descriptions stop pretending to be
+    about poultry, and the **chrome mutates**: the `🐔` counter label and cost buttons
+    become `?` (`counterLabel`) and the browser tab title becomes "do you see them?"
+    (`pageTitle`). Ticker reframes it — there were never chickens, only the number and
+    a person alone with it. (The on-page `<h1>` stays cheerful on purpose.)
 - **ASCII glitch**: from Stage 2, `glitchArt(art, offsets)` produces a one-frame
   misaligned chicken; `main.js` generates random offsets each time so it never repeats.
 

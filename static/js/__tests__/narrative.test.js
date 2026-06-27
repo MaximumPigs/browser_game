@@ -16,6 +16,8 @@ import {
   COLLECT_FLICKER,
   resetGreeting,
   glitchArt,
+  counterLabel,
+  pageTitle,
 } from "../narrative.js";
 
 describe("stageFor", () => {
@@ -49,7 +51,7 @@ describe("tickerPool", () => {
 
   it("reuses unlocked lines for stages with no new content", () => {
     expect(tickerPool(2)).toEqual(tickerPool(1)); // Stage 2 adds no lines
-    expect(tickerPool(5)).toEqual(tickerPool(3)); // Stages 4-5 add no lines
+    expect(tickerPool(5)).toEqual(tickerPool(4)); // Stage 5 adds no lines
   });
 
   it("keeps Stage 0 lines first so index 0 stays wholesome", () => {
@@ -82,10 +84,31 @@ describe("artFor", () => {
     expect(artFor(0)).toContain("( o   )>");
   });
 
-  it("switches to the dark eye at Stage 2 and stays there", () => {
+  it("switches to the dark eye at Stage 2", () => {
     expect(artFor(2)).toBe(ART[2]);
-    expect(artFor(5)).toBe(ART[2]);
+    expect(artFor(3)).toBe(ART[2]);
     expect(artFor(2)).toContain("( ●   )>");
+  });
+
+  it("corrupts further at Stage 4 (a second eye) and stays there", () => {
+    expect(artFor(4)).toBe(ART[4]);
+    expect(artFor(5)).toBe(ART[4]);
+    expect(artFor(4)).toContain("( ● ●)>");
+  });
+});
+
+describe("counterLabel / pageTitle", () => {
+  it("are wholesome before Stage 4", () => {
+    expect(counterLabel(0)).toBe("🐔");
+    expect(counterLabel(3)).toBe("🐔");
+    expect(pageTitle(0)).toBe("Chicken Farm");
+    expect(pageTitle(3)).toBe("Chicken Farm");
+  });
+
+  it("mutate from Stage 4 on", () => {
+    expect(counterLabel(4)).toBe("?");
+    expect(counterLabel(5)).toBe("?");
+    expect(pageTitle(4)).toBe("do you see them?");
   });
 });
 
@@ -99,8 +122,17 @@ describe("describeUpgrade", () => {
     expect(describeUpgrade(2, "rooster", "default")).toBe(
       UPGRADE_DESCRIPTIONS[2].rooster,
     );
-    expect(describeUpgrade(5, "barn", "default")).toBe(
+    expect(describeUpgrade(3, "barn", "default")).toBe(
       UPGRADE_DESCRIPTIONS[2].barn,
+    );
+  });
+
+  it("uses the Stage 4 override once that stage is reached", () => {
+    expect(describeUpgrade(4, "barn", "default")).toBe(
+      UPGRADE_DESCRIPTIONS[4].barn,
+    );
+    expect(describeUpgrade(5, "rooster", "default")).toBe(
+      UPGRADE_DESCRIPTIONS[4].rooster,
     );
   });
 

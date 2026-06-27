@@ -67,6 +67,16 @@ export const TICKERS = {
     "They line up the way you taught them.",
     "You can stop whenever you want. You won't.",
   ],
+  // Stage 4 — the framing flips. There were never chickens; there is the
+  // number, and a person alone with it. Psychological, not gory.
+  4: [
+    "These were never chickens.",
+    "You haven't seen another person in weeks.",
+    "The counting is the only thing holding you together.",
+    "You don't remember your own name. You know the number.",
+    "There is no farm. There is only the number.",
+    "Count. It's all that's left.",
+  ],
 };
 
 // Context-aware lines the game surfaces when it "knows" something — these are
@@ -139,11 +149,27 @@ const chickenArt = (eye) =>
     "",
   ].join("\n");
 
+// Stage 4 — the drawing is wrong now: a second eye, broken legs, a body that
+// no longer closes. Still recognizably "the chicken", which is the unsettling
+// part. Authored as its own frame rather than via chickenArt().
+const chickenArtCorrupt = [
+  "",
+  "        _",
+  "      _(\\)_",
+  "     ( ● ●)>",
+  "      (_x_)",
+  "      /| |\\",
+  "     |     |",
+  "     '--·--'",
+  "",
+].join("\n");
+
 // Art keyed by the stage that introduces a new frame. Resolved cumulatively by
 // artFor (latest frame at-or-below the current stage wins).
 export const ART = {
   0: chickenArt("o"),
   2: chickenArt("●"), // the eye stops looking back the same way
+  4: chickenArtCorrupt, // and then there are two of them
 };
 
 /** The chicken art to show at `stage` (most recent frame at or below it). */
@@ -152,6 +178,30 @@ export function artFor(stage) {
     if (ART[s]) return ART[s];
   }
   return ART[0];
+}
+
+// --- Mutable chrome (counter label + page title) -----------------------------
+
+// The "🐔" beside the count and the browser tab title. At Stage 4 the player no
+// longer knows what they're counting, and the tab quietly asks them.
+export const COUNTER_LABEL = { 0: "🐔", 4: "?" };
+export const PAGE_TITLE = { 0: "Chicken Farm", 4: "do you see them?" };
+
+const resolveByStage = (table, stage, fallback) => {
+  for (let s = stage; s >= 0; s--) {
+    if (table[s] != null) return table[s];
+  }
+  return fallback;
+};
+
+/** Label shown beside the count (and on cost buttons). */
+export function counterLabel(stage) {
+  return resolveByStage(COUNTER_LABEL, stage, "🐔");
+}
+
+/** The browser tab title for the given stage. */
+export function pageTitle(stage) {
+  return resolveByStage(PAGE_TITLE, stage, "Chicken Farm");
 }
 
 // --- Upgrade descriptions ----------------------------------------------------
@@ -165,6 +215,13 @@ export const UPGRADE_DESCRIPTIONS = {
     coop: "Easier to keep them where you can see them.",
     rooster: "He keeps the others from leaving.",
     barn: "So much room. No one would hear.",
+  },
+  // Stage 4 — the descriptions stop pretending to be about poultry at all.
+  4: {
+    feed: "It was never about feeding them.",
+    coop: "You built the walls yourself.",
+    rooster: "There's only ever been you.",
+    barn: "Big enough to lose a person in.",
   },
 };
 
