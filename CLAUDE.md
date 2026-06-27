@@ -4,9 +4,15 @@ Guidance for Claude Code (and humans) working in this repository.
 
 ## Project overview
 
-`browser_game` is a **text-based / incremental (idle/clicker) game that runs in the
-browser**. The vibe is intentionally simple and hackable — favor small, readable
-changes over heavy abstraction.
+`browser_game` is a **chicken-farm themed incremental (idle/clicker) game that runs
+in the browser**. You collect chickens by clicking and by buying upgrades (Better
+Feed, Chicken Coop, Rooster, Big Barn) that boost per-click and per-second income.
+The vibe is intentionally simple and hackable — favor small, readable changes over
+heavy abstraction.
+
+The upgrade catalogue lives in `UPGRADES` in `static/js/state.js`; add new content by
+extending that array (cost/growth/effects are data-driven, and the shop UI renders
+itself from it).
 
 - **Frontend:** vanilla JavaScript, HTML, and CSS — **no framework, no build step**.
 - **Backend:** Python with **Flask**, serving the static frontend and a small JSON API.

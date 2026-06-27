@@ -1,8 +1,10 @@
 :root {
-  --bg: #11131a;
-  --fg: #e6e8ef;
-  --accent: #6ea8fe;
-  --muted: #8b90a0;
+  --bg: #1a1710;
+  --fg: #f3ead7;
+  --accent: #f4c430;
+  --accent-dark: #b8901b;
+  --muted: #a89a78;
+  --panel: #241f16;
 }
 
 * {
@@ -13,7 +15,7 @@ body {
   margin: 0;
   min-height: 100vh;
   display: grid;
-  place-items: center;
+  place-items: start center;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   background: var(--bg);
   color: var(--fg);
@@ -21,17 +23,19 @@ body {
 
 .game {
   text-align: center;
-  padding: 2rem;
+  padding: 2rem 1rem 3rem;
+  width: 100%;
+  max-width: 480px;
 }
 
 h1 {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   letter-spacing: 0.02em;
 }
 
-.points {
-  font-size: 2.5rem;
-  font-weight: 700;
+.chickens {
+  font-size: 2.6rem;
+  font-weight: 800;
   margin: 0.25rem 0;
 }
 
@@ -41,33 +45,102 @@ h1 {
 }
 
 .controls {
-  margin-top: 1.5rem;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: center;
+  margin: 1.25rem 0;
 }
 
 button {
   font: inherit;
-  padding: 0.6rem 1.2rem;
+  padding: 0.6rem 1.1rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--accent);
-  color: #0b0d12;
-  font-weight: 600;
+  color: #2a2206;
+  font-weight: 700;
   cursor: pointer;
 }
 
-button:hover {
+button:hover:not(:disabled) {
   filter: brightness(1.08);
 }
 
-button:active {
+button:active:not(:disabled) {
   transform: translateY(1px);
 }
 
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+button.collect {
+  font-size: 1.15rem;
+  padding: 0.9rem 1.6rem;
+}
+
+/* Shop */
+.shop {
+  margin-top: 1.5rem;
+  text-align: left;
+}
+
+.shop h2 {
+  font-size: 1rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+}
+
+#shop-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.upgrade {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--panel);
+  border: 1px solid #34291a;
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+}
+
+.upgrade-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.upgrade-name {
+  font-weight: 700;
+}
+
+.upgrade-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.upgrade-owned {
+  color: var(--accent);
+  font-weight: 700;
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.upgrade button {
+  white-space: nowrap;
+}
+
 button.secondary {
+  margin-top: 1.75rem;
   background: transparent;
   color: var(--muted);
   border: 1px solid var(--muted);
+  font-weight: 600;
 }
