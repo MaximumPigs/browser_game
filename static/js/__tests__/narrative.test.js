@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stageFor, tickerLine, TICKERS } from "../narrative.js";
+import { stageFor, tickerLine, tickerPool, TICKERS } from "../narrative.js";
 
 describe("stageFor", () => {
   it("starts at stage 0", () => {
@@ -21,8 +21,26 @@ describe("stageFor", () => {
   });
 });
 
+describe("tickerPool", () => {
+  it("is just the Stage 0 lines at stage 0", () => {
+    expect(tickerPool(0)).toEqual(TICKERS[0]);
+  });
+
+  it("accumulates lines as stages unlock", () => {
+    expect(tickerPool(1)).toEqual([...TICKERS[0], ...TICKERS[1]]);
+  });
+
+  it("reuses unlocked lines for stages with no new content", () => {
+    expect(tickerPool(5)).toEqual(tickerPool(1));
+  });
+
+  it("keeps Stage 0 lines first so index 0 stays wholesome", () => {
+    expect(tickerPool(5)[0]).toBe(TICKERS[0][0]);
+  });
+});
+
 describe("tickerLine", () => {
-  it("returns a stage 0 line", () => {
+  it("returns a stage 0 line at stage 0", () => {
     expect(TICKERS[0]).toContain(tickerLine(0, 0));
   });
 
@@ -32,7 +50,9 @@ describe("tickerLine", () => {
     expect(tickerLine(0, -1)).toBe(tickerLine(0, n - 1));
   });
 
-  it("falls back to stage 0 lines for stages without content", () => {
-    expect(TICKERS[0]).toContain(tickerLine(5, 0));
+  it("can surface Stage 1 lines once that stage is reached", () => {
+    const pool = tickerPool(1);
+    const seen = pool.map((_, i) => tickerLine(1, i));
+    for (const line of TICKERS[1]) expect(seen).toContain(line);
   });
 });

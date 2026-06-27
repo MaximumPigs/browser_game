@@ -25,10 +25,13 @@ content: the voice is the player's decaying perception, not a sentient farm.
 
 - Progression is gated on `lifetime` (total chickens ever collected) — the deeper in,
   the further gone — computed into a stage by `stageFor()` in `static/js/narrative.js`.
-- Story content (e.g. `TICKERS`) is **data keyed by stage**; stages without content
-  fall back to Stage 0, so the game stays ordinary until later stages are authored.
+- Story content (e.g. `TICKERS`) is **data keyed by the stage that adds it**; the
+  visible ticker pool is **cumulative** (`tickerPool`), so earlier lines keep
+  surfacing as new ones creep in. Stages with no new lines reuse what's unlocked.
 - `narrative.js` is pure (no DOM/time/randomness — callers pass an index in) and
-  unit-tested. Currently only **Stage 0** (wholesome) is implemented.
+  unit-tested. **Stages 0–1** are implemented: Stage 0 wholesome, Stage 1 (at 1,000
+  lifetime) slips in deniable off-key lines about the *farmer* (memory, perception,
+  compulsion, lost time) — never the farm.
 
 - **Frontend:** vanilla JavaScript, HTML, and CSS — **no framework, no build step**.
 - **Backend:** Python with **Flask**, serving the static frontend and a small JSON API.
