@@ -53,6 +53,12 @@ content: the voice is the player's decaying perception, not a sentient farm.
     become `?` (`counterLabel`) and the browser tab title becomes "do you see them?"
     (`pageTitle`). Ticker reframes it — there were never chickens, only the number and
     a person alone with it. (The on-page `<h1>` stays cheerful on purpose.)
+  - **5** (2,000,000 lifetime) — *the ending*. A full-screen takeover plays the
+    `ENDING` monologue one line at a time: the player surfaces into lucidity, the act
+    drops (no farm, no chickens — a sick person alone with tally marks), and it ends on
+    relapse ("Just one more." → a bare **Collect** button that returns them to the
+    corrupted game). `triggerEnding()` in `main.js` plays once per page load; the loop
+    is deliberate — the compulsion outlasts the clarity.
 - **ASCII glitch**: from Stage 2, `glitchArt(art, offsets)` produces a one-frame
   misaligned chicken; `main.js` generates random offsets each time so it never repeats.
 

@@ -18,6 +18,8 @@ import {
   glitchArt,
   counterLabel,
   pageTitle,
+  isEnding,
+  ENDING,
 } from "../narrative.js";
 
 describe("stageFor", () => {
@@ -109,6 +111,19 @@ describe("counterLabel / pageTitle", () => {
     expect(counterLabel(4)).toBe("?");
     expect(counterLabel(5)).toBe("?");
     expect(pageTitle(4)).toBe("do you see them?");
+  });
+});
+
+describe("ending", () => {
+  it("triggers only at Stage 5", () => {
+    expect(isEnding(4)).toBe(false);
+    expect(isEnding(5)).toBe(true);
+  });
+
+  it("is a non-empty monologue that relapses on the last line", () => {
+    expect(ENDING.length).toBeGreaterThan(0);
+    expect(ENDING.every((l) => typeof l === "string" && l.length)).toBe(true);
+    expect(ENDING[ENDING.length - 1]).toBe("Just one more.");
   });
 });
 

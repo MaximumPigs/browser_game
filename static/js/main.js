@@ -26,6 +26,8 @@ import {
   glitchArt,
   counterLabel,
   pageTitle,
+  isEnding,
+  ENDING,
 } from "./narrative.js";
 
 const TICK_MS = 1000;
@@ -198,6 +200,47 @@ function render() {
     row.btn.disabled = !canAfford(state, id);
     row.desc.textContent = describeUpgrade(stage, id, row.upgrade.description);
   }
+
+  if (isEnding(stage)) triggerEnding();
+}
+
+// The ending: a quiet, one-line-at-a-time takeover. Plays once per page load;
+// dismissing it drops the player back into the (still corrupted) game, because
+// the compulsion doesn't end — that's the point.
+let endingPlaying = false;
+function triggerEnding() {
+  if (endingPlaying) return;
+  endingPlaying = true;
+
+  const overlay = document.createElement("div");
+  overlay.className = "ending";
+  const lineEl = document.createElement("p");
+  lineEl.className = "ending-line";
+  overlay.append(lineEl);
+  document.body.append(overlay);
+  replay(overlay, "fade-in");
+
+  let i = 0;
+  (function nextLine() {
+    if (i < ENDING.length) {
+      lineEl.textContent = ENDING[i];
+      replay(lineEl, "fade-in-slow");
+      i += 1;
+      setTimeout(nextLine, 3600);
+    } else {
+      // Rest on the final line, then offer the only way forward: to continue.
+      const again = document.createElement("button");
+      again.type = "button";
+      again.className = "ending-again";
+      again.textContent = "Collect";
+      again.addEventListener("click", () => {
+        overlay.remove();
+        endingPlaying = false;
+      });
+      overlay.append(again);
+      replay(again, "fade-in-slow");
+    }
+  })();
 }
 
 els.collectBtn.addEventListener("click", () => {

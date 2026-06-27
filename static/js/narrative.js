@@ -286,6 +286,30 @@ export function resetGreeting(stage, peakLifetime, resets) {
   return `Welcome back. We waited. All ${format(peakLifetime)} of us.`;
 }
 
+// --- Ending (Stage 5) --------------------------------------------------------
+
+// The final lucid moment, shown one line at a time. The act drops here: there
+// was never a farm, only a sick person alone with a number they kept. It ends
+// on relapse — the compulsion outlasts the clarity.
+export const ENDING = [
+  "Your hand stops.",
+  "For the first time in longer than you can remember, you look up.",
+  "There is no farm.",
+  "There are no chickens. There never were.",
+  "There is a small room, a wall, and thousands of marks scratched into it.",
+  "You made every one.",
+  "You don't know how long you've been here. You don't know your name.",
+  "You were not well. No one came.",
+  "The number is the only thing left that still feels like you.",
+  "And it's so close to round.",
+  "Just one more.",
+];
+
+/** Whether the player has reached the ending. */
+export function isEnding(stage) {
+  return stage >= 5;
+}
+
 // --- ASCII art glitch --------------------------------------------------------
 
 /**
