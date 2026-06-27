@@ -28,10 +28,17 @@ content: the voice is the player's decaying perception, not a sentient farm.
 - Story content (e.g. `TICKERS`) is **data keyed by the stage that adds it**; the
   visible ticker pool is **cumulative** (`tickerPool`), so earlier lines keep
   surfacing as new ones creep in. Stages with no new lines reuse what's unlocked.
-- `narrative.js` is pure (no DOM/time/randomness — callers pass an index in) and
-  unit-tested. **Stages 0–1** are implemented: Stage 0 wholesome, Stage 1 (at 1,000
-  lifetime) slips in deniable off-key lines about the *farmer* (memory, perception,
-  compulsion, lost time) — never the farm.
+- `narrative.js` is pure (no DOM/time/randomness — callers pass indices/elapsed in)
+  and unit-tested. It also resolves stage-keyed **ASCII art** (`artFor`), **upgrade
+  descriptions** (`describeUpgrade`), and the return message (`returnMessage`).
+- **Stages 0–2** implemented:
+  - **0** wholesome.
+  - **1** (1,000 lifetime) slips in deniable off-key ticker lines about the *farmer*
+    (memory, perception, compulsion, lost time) — never the farm.
+  - **2** (10,000 lifetime) — first *visual* reaction: the chicken's eye `o → ●`,
+    upgrade descriptions gain a darker second reading, and returning after an absence
+    shows "while you were away, N went missing." The missing count is **imagined** —
+    it never actually leaves the save (`state.lastSeen` drives the elapsed-time calc).
 
 - **Frontend:** vanilla JavaScript, HTML, and CSS — **no framework, no build step**.
 - **Backend:** Python with **Flask**, serving the static frontend and a small JSON API.

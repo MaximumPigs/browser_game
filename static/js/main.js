@@ -13,12 +13,33 @@ import {
 } from "./state.js";
 import { load, save, clear } from "./save.js";
 import { format } from "./format.js";
-import { stageFor, tickerLine } from "./narrative.js";
+import {
+  stageFor,
+  tickerLine,
+  artFor,
+  describeUpgrade,
+  returnMessage,
+} from "./narrative.js";
 
 const TICK_MS = 1000;
 const TICKER_MS = 9000;
 
 let state = load();
+
+// How long the player was away since their last session (seconds). Captured
+// before any save re-stamps `lastSeen`. Drives the Stage 2+ return message.
+const awaySeconds = state.lastSeen
+  ? Math.max(0, (Date.now() - state.lastSeen) / 1000)
+  : 0;
+
+// Save, stamping the time so the next visit can tell how long they were gone.
+function persist() {
+  state.lastSeen = Date.now();
+  save(state);
+}
+
+// Cache the last art frame applied so render() only touches the DOM on change.
+let shownArt = null;
 
 const els = {
   chickens: document.getElementById("chickens"),
@@ -75,9 +96,16 @@ const rows = UPGRADES.map((u) => {
 
   const info = document.createElement("div");
   info.className = "upgrade-info";
-  info.innerHTML =
-    `<span class="upgrade-name">${u.name}</span>` +
-    `<span class="upgrade-desc">${u.description}</span>`;
+
+  const name = document.createElement("span");
+  name.className = "upgrade-name";
+  name.textContent = u.name;
+
+  const desc = document.createElement("span");
+  desc.className = "upgrade-desc";
+  desc.textContent = u.description;
+
+  info.append(name, desc);
 
   const owned = document.createElement("span");
   owned.className = "upgrade-owned";
@@ -87,7 +115,7 @@ const rows = UPGRADES.map((u) => {
   btn.addEventListener("click", () => {
     const before = state.upgrades[u.id] || 0;
     state = buy(state, u.id);
-    save(state);
+    persist();
     render();
     // Only celebrate if the purchase actually went through.
     if ((state.upgrades[u.id] || 0) > before) {
@@ -98,26 +126,36 @@ const rows = UPGRADES.map((u) => {
 
   li.append(info, owned, btn);
   els.shopList.append(li);
-  return { upgrade: u, owned, btn };
+  return { upgrade: u, owned, btn, desc };
 });
 
 function render() {
+  const stage = stageFor(state.lifetime);
+
   els.chickens.textContent = format(state.chickens);
   els.perSecond.textContent = format(perSecond(state));
   els.perClick.textContent = format(perClick(state));
+
+  // Swap the ASCII art only when the stage's frame actually changes.
+  const art = artFor(stage);
+  if (art !== shownArt) {
+    els.chicken.textContent = art;
+    shownArt = art;
+  }
 
   for (const row of rows) {
     const id = row.upgrade.id;
     row.owned.textContent = `×${state.upgrades[id] || 0}`;
     row.btn.textContent = `Buy (${format(costOf(state, id))} 🐔)`;
     row.btn.disabled = !canAfford(state, id);
+    row.desc.textContent = describeUpgrade(stage, id, row.upgrade.description);
   }
 }
 
 els.collectBtn.addEventListener("click", () => {
   const gain = perClick(state);
   state = click(state);
-  save(state);
+  persist();
   render();
   spawnFloat(els.collectArea, `+${format(gain)}`);
   replay(els.chicken, "wiggle");
@@ -134,7 +172,7 @@ els.resetBtn.addEventListener("click", () => {
 // Idle/incremental progress.
 setInterval(() => {
   state = tick(state, TICK_MS / 1000);
-  save(state);
+  persist();
   render();
 }, TICK_MS);
 
@@ -142,4 +180,13 @@ setInterval(() => {
 setInterval(showTicker, TICKER_MS);
 
 render();
-showTicker();
+
+// On return after an absence, the ticker first shows the "missing" message
+// (Stage 2+), then normal rotation resumes on the next interval.
+const returned = returnMessage(stageFor(state.lifetime), awaySeconds);
+if (returned) {
+  els.ticker.textContent = returned;
+  replay(els.ticker, "fade-in");
+} else {
+  showTicker();
+}

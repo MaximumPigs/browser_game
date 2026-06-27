@@ -79,3 +79,79 @@ export function tickerLine(stage, index) {
   const i = ((index % lines.length) + lines.length) % lines.length;
   return lines[i];
 }
+
+// --- ASCII art ---------------------------------------------------------------
+
+// The chicken is the same drawing at every stage; only details rot. `eye` is
+// the one knob Stage 2 turns: the friendly "o" becomes a dark, fixed "●".
+const chickenArt = (eye) =>
+  [
+    "",
+    "        _",
+    "      _( )_",
+    `     ( ${eye}   )>`,
+    "      (___)",
+    "      /   \\",
+    "     |     |",
+    "     '-----'",
+    "",
+  ].join("\n");
+
+// Art keyed by the stage that introduces a new frame. Resolved cumulatively by
+// artFor (latest frame at-or-below the current stage wins).
+export const ART = {
+  0: chickenArt("o"),
+  2: chickenArt("●"), // the eye stops looking back the same way
+};
+
+/** The chicken art to show at `stage` (most recent frame at or below it). */
+export function artFor(stage) {
+  for (let s = stage; s >= 0; s--) {
+    if (ART[s]) return ART[s];
+  }
+  return ART[0];
+}
+
+// --- Upgrade descriptions ----------------------------------------------------
+
+// Per-stage overrides for upgrade descriptions, keyed by stage then upgrade id.
+// Stage 2 keeps the cheerful names but the descriptions gain a second reading —
+// confinement, control, things better not said. Still ostensibly about poultry.
+export const UPGRADE_DESCRIPTIONS = {
+  2: {
+    feed: "They're hungrier than they used to be.",
+    coop: "Easier to keep them where you can see them.",
+    rooster: "He keeps the others from leaving.",
+    barn: "So much room. No one would hear.",
+  },
+};
+
+/**
+ * The description to show for upgrade `id` at `stage`, falling back to
+ * `fallback` (the upgrade's own default) when no override applies.
+ */
+export function describeUpgrade(stage, id, fallback) {
+  for (let s = stage; s >= 0; s--) {
+    if (UPGRADE_DESCRIPTIONS[s] && UPGRADE_DESCRIPTIONS[s][id]) {
+      return UPGRADE_DESCRIPTIONS[s][id];
+    }
+  }
+  return fallback;
+}
+
+// --- Return ("while you were away") message ----------------------------------
+
+/** How many chickens the player imagines went missing while away. */
+export function missingCount(elapsedSeconds) {
+  return Math.min(99, Math.max(1, Math.floor(elapsedSeconds / 60)));
+}
+
+/**
+ * Message shown when the player returns after an absence — null when it
+ * shouldn't fire (before Stage 2, or after only a brief gap). The "missing"
+ * chickens are imagined: the count never actually leaves the save.
+ */
+export function returnMessage(stage, elapsedSeconds) {
+  if (stage < 2 || elapsedSeconds < 60) return null;
+  return `While you were away, ${missingCount(elapsedSeconds)} went missing.`;
+}
