@@ -1,0 +1,15 @@
+{
+  "name": "fish-box",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A Candy Box-style incremental game about tinned, pickled fish.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "serve": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  }
+}
