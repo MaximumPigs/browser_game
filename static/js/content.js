@@ -7,8 +7,7 @@ export const CONFIG = {
   canYieldTins: 1,
   tonicHeal: 12,
   throwTinDamage: 7,
-  revealEatAt: 10, // fish count that reveals the joke button
-  revealShopAt: 30, // fish count that reveals the shop
+  bottleNoticeAt: 8, // fish count after which a bottle may bob into view
 };
 
 // Player stats before any gear. Weapon overrides attack/attackCdMs; armour adds
@@ -97,12 +96,13 @@ export const SHOP = [
   },
 ];
 
-// Enemy archetypes for the arena.
+// Enemy archetypes for the arena. `windupMs` is the telegraph time before a
+// strike lands — longer is easier to read/block/dodge.
 export const ENEMIES = {
-  crab: { name: "a crab", glyph: "c", hp: 10, attack: 3, defense: 2, moveCdMs: 520, attackCdMs: 900 },
-  gull: { name: "a gull", glyph: ">", hp: 6, attack: 4, defense: 0, moveCdMs: 230, attackCdMs: 700, erratic: true },
-  sardine: { name: "a sardine", glyph: "~", hp: 3, attack: 2, defense: 0, moveCdMs: 300, attackCdMs: 650 },
-  seal: { name: "the Harbour Seal", glyph: "S", hp: 34, attack: 6, defense: 2, moveCdMs: 360, attackCdMs: 820 },
+  crab: { name: "a crab", glyph: "c", hp: 10, attack: 3, defense: 2, moveCdMs: 520, attackCdMs: 900, windupMs: 560 },
+  gull: { name: "a gull", glyph: ">", hp: 6, attack: 4, defense: 0, moveCdMs: 230, attackCdMs: 700, windupMs: 340, erratic: true },
+  sardine: { name: "a sardine", glyph: "~", hp: 3, attack: 2, defense: 0, moveCdMs: 300, attackCdMs: 650, windupMs: 400 },
+  seal: { name: "the Harbour Seal", glyph: "S", hp: 34, attack: 6, defense: 2, moveCdMs: 360, attackCdMs: 820, windupMs: 480 },
 };
 
 // First adventure area: a linear run of waves ending in the seal.
@@ -123,18 +123,44 @@ export const DOCKS = {
     ],
     [{ type: "seal", x: 10, y: 2 }],
   ],
-  reward: { fish: 150, unlockFlag: "canneryUnlocked", clearsFlag: "docksCleared", found: "bottle" },
+  reward: { fish: 150, unlockFlag: "canneryUnlocked", clearsFlag: "docksCleared", found: "deed" },
 };
 
-// Found items from quests (the diegetic core unlocks).
+// Found items (the diegetic core unlocks). Delivered obliquely — no "You
+// unlocked X!"; you infer what they mean.
 export const FOUND = {
-  bottle: {
-    title: "A message in a bottle",
+  deed: {
+    title: "a deed, of sorts",
     text:
-      "Bobbing in the reek is a bottle. Inside, brittle and water-stained: " +
-      "“DEED — the Old Cannery, and all the tins therein. Yours now, " +
-      "if you'll have the burden.”",
+      "Among the wet you find a paper, brittle and stained: “DEED — the Old " +
+      "Cannery, and all the tins therein. Yours now, if you'll have the burden.” " +
+      "You feel, suddenly, that you know how to press fish into tins.",
   },
+};
+
+// Discoveries: progression happens by NOTICING, not being told. Triggers are
+// wired in main.js (clicking the bobbing bottle, clicking the word "fish",
+// following the pier once armed); each idempotently flips flags / yields a
+// found-object. `note` is the oblique line shown when it fires.
+export const DISCOVERIES = {
+  market: {
+    flags: { shopRevealed: true },
+    note: "The bottle holds a soggy handbill. A market, it says. Down at the waterline.",
+  },
+  theEat: {
+    flags: { eatRevealed: true },
+    note: "You could just… eat them. Raw. The thought arrives uninvited.",
+  },
+  thePier: {
+    flags: { adventureUnlocked: true },
+    note: "The pier runs out past the last light. Something down there wants a fight.",
+  },
+};
+
+// Oblique, clickable clue text (rendered by main.js as discoverable surfaces).
+export const CLUES = {
+  bottle: "— a bottle bobs in on the tide",
+  pier: "The pier goes out a long way. You could follow it.",
 };
 
 // Rotating flavour lines under the counter.
@@ -156,16 +182,6 @@ export const EAT_MESSAGES = [
   "You eat all your fish. A dentist, somewhere, shudders.",
   "There were no fish to eat. You mime it anyway.",
 ];
-
-// Short story beats shown in the main panel.
-export const STORY = {
-  intro: "You have a bucket. The sea has fish. It seems like the start of something.",
-  shopReveal: "A market has appeared at the waterline. Perhaps it was always there.",
-  pierPrompt:
-    "You have a weapon now. You could walk to the end of the pier and see what wants a fight.",
-  canneryReveal:
-    "The Old Cannery is yours. You can press fish into tins by hand — ten fish to a tin.",
-};
 
 // Secret: clicking the credits cycles these whispers.
 export const CREDIT_WHISPERS = [

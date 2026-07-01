@@ -1,8 +1,15 @@
 // Pure, deterministic real-time arena engine. No DOM/timing/global RNG — the
 // caller passes elapsed ms and an input snapshot; randomness comes from a seed
-// carried in the arena. Rendering (renderArena) is a pure arena -> string too.
+// carried in the arena.
+//
+// Legibility model: attacks are TELEGRAPHED. An enemy that commits to a strike
+// enters a `windup` (its target tile pulses) before the hit lands — giving the
+// player a visible window to block (face it) or dodge (step off the tile). The
+// player's own attack emits a `strike` event so the UI can animate a swing.
 
 import { CONFIG, ENEMIES, PLAYER_BASE } from "./content.js";
+
+const DEFAULT_WINDUP_MS = 420;
 
 const sign = (n) => (n > 0 ? 1 : n < 0 ? -1 : 0);
 
@@ -65,14 +72,17 @@ function spawnWave(arena, index) {
       x: spec.x,
       y: spec.y,
       hp: def.hp,
+      maxHp: def.hp,
       attack: def.attack,
       defense: def.defense,
       moveCdMs: def.moveCdMs,
       attackCdMs: def.attackCdMs,
+      windupMs: def.windupMs || DEFAULT_WINDUP_MS,
       erratic: !!def.erratic,
       facing: { dx: 0, dy: 1 },
       moveCd: def.moveCdMs,
       attackCd: def.attackCdMs,
+      windup: null, // { ms, target:{x,y} } while telegraphing a strike
     });
   }
 }
@@ -91,7 +101,11 @@ function cloneArena(a) {
   return {
     ...a,
     player: { ...a.player, facing: { ...a.player.facing } },
-    enemies: a.enemies.map((e) => ({ ...e, facing: { ...e.facing } })),
+    enemies: a.enemies.map((e) => ({
+      ...e,
+      facing: { ...e.facing },
+      windup: e.windup ? { ...e.windup, target: { ...e.windup.target } } : null,
+    })),
     projectiles: a.projectiles.map((pr) => ({ ...pr })),
     resources: { ...a.resources },
     used: { ...a.used },
@@ -195,6 +209,45 @@ function stepEnemyToward(arena, e) {
   }
 }
 
+// One enemy's turn: resolve a telegraphed strike, start a new telegraph, or move.
+function stepEnemy(arena, e, dtMs, events) {
+  const p = arena.player;
+  e.moveCd = Math.max(0, e.moveCd - dtMs);
+  e.attackCd = Math.max(0, e.attackCd - dtMs);
+
+  if (e.windup) {
+    e.windup.ms -= dtMs;
+    if (e.windup.ms <= 0) {
+      const t = e.windup.target;
+      if (p.x === t.x && p.y === t.y) {
+        const dmg = incomingDamage(arena, e);
+        if (dmg > 0) {
+          p.hp -= dmg;
+          events.push({ type: "hit", target: "player", name: e.name, dmg, x: p.x, y: p.y });
+        } else {
+          events.push({ type: "blocked", name: e.name });
+        }
+      } else {
+        events.push({ type: "miss", name: e.name }); // player dodged the telegraph
+      }
+      e.attackCd = e.attackCdMs;
+      e.windup = null;
+    }
+    return; // no moving while winding up
+  }
+
+  if (isAdjacent(e, p)) {
+    if (e.attackCd <= 0) {
+      e.facing = { dx: sign(p.x - e.x), dy: sign(p.y - e.y) };
+      e.windup = { ms: e.windupMs, target: { x: p.x, y: p.y } };
+      events.push({ type: "windup", name: e.name, x: p.x, y: p.y });
+    }
+  } else if (e.moveCd <= 0) {
+    stepEnemyToward(arena, e);
+    e.moveCd = e.moveCdMs;
+  }
+}
+
 /**
  * Advance the arena by `dtMs`, applying the input snapshot:
  *   { move:{dx,dy}|null, attack:bool(held), block:bool(held),
@@ -231,6 +284,7 @@ export function stepArena(prev, dtMs, input = {}) {
     if (input.attack && p.attackCd <= 0) {
       const tx = p.x + p.facing.dx;
       const ty = p.y + p.facing.dy;
+      events.push({ type: "strike", x: tx, y: ty }); // swing animation
       const foe = enemyAt(arena, tx, ty);
       if (foe) {
         const dmg = Math.max(1, p.attack - foe.defense);
@@ -245,25 +299,8 @@ export function stepArena(prev, dtMs, input = {}) {
   stepProjectiles(arena, dtMs, events);
   arena.enemies = arena.enemies.filter((e) => e.hp > 0);
 
-  for (const e of arena.enemies) {
-    e.moveCd = Math.max(0, e.moveCd - dtMs);
-    e.attackCd = Math.max(0, e.attackCd - dtMs);
-    if (isAdjacent(e, p)) {
-      if (e.attackCd <= 0) {
-        const dmg = incomingDamage(arena, e);
-        if (dmg > 0) {
-          p.hp -= dmg;
-          events.push({ type: "hit", target: "player", name: e.name, dmg });
-        } else {
-          events.push({ type: "block", name: e.name });
-        }
-        e.attackCd = e.attackCdMs;
-      }
-    } else if (e.moveCd <= 0) {
-      stepEnemyToward(arena, e);
-      e.moveCd = e.moveCdMs;
-    }
-  }
+  for (const e of arena.enemies) stepEnemy(arena, e, dtMs, events);
+  arena.enemies = arena.enemies.filter((e) => e.hp > 0);
 
   if (p.hp <= 0) {
     p.hp = 0;
@@ -283,23 +320,68 @@ export function stepArena(prev, dtMs, input = {}) {
   return { arena, events };
 }
 
-/** Pure render of an arena to a monospace string (border walls, glyphs). */
-export function renderArena(arena) {
-  const rows = [];
+// --- Rendering source (pure) ------------------------------------------------
+
+const FACING_GLYPH = (f) =>
+  f.dy < 0 ? "▲" : f.dy > 0 ? "▼" : f.dx < 0 ? "◀" : "▶"; // ▲▼◀▶
+
+/**
+ * Pure render source: a 2D grid of cell descriptors the UI turns into styled
+ * elements. Each cell: { glyph, kind, aim?, telegraph?, blocking?, winding? }.
+ * kind ∈ wall | floor | player | enemy | tin.
+ */
+export function arenaCells(arena) {
+  const grid = [];
   for (let y = 0; y < arena.height; y++) {
-    let row = "";
+    const row = [];
     for (let x = 0; x < arena.width; x++) {
-      row += isWallTile(arena, x, y) ? "#" : " ";
+      row.push(isWallTile(arena, x, y) ? { glyph: "#", kind: "wall" } : { glyph: " ", kind: "floor" });
     }
-    rows.push(row.split(""));
+    grid.push(row);
   }
+
+  const p = arena.player;
+  const at = (x, y) => (grid[y] && grid[y][x] ? grid[y][x] : null);
+
+  // Aim highlight on the player's faced tile.
+  const aim = at(p.x + p.facing.dx, p.y + p.facing.dy);
+  if (aim) aim.aim = true;
+
+  // Enemy telegraphs.
+  for (const e of arena.enemies) {
+    if (e.windup) {
+      const t = at(e.windup.target.x, e.windup.target.y);
+      if (t) t.telegraph = true;
+    }
+  }
+
   for (const pr of arena.projectiles) {
-    if (rows[pr.y] && rows[pr.y][pr.x] !== undefined) rows[pr.y][pr.x] = "o";
+    const c = at(pr.x, pr.y);
+    if (c) {
+      c.glyph = "o";
+      c.kind = "tin";
+    }
   }
   for (const e of arena.enemies) {
-    if (rows[e.y] && rows[e.y][e.x] !== undefined) rows[e.y][e.x] = e.glyph;
+    const c = at(e.x, e.y);
+    if (c) {
+      c.glyph = e.glyph;
+      c.kind = "enemy";
+      c.winding = !!e.windup;
+    }
   }
-  const p = arena.player;
-  if (rows[p.y]) rows[p.y][p.x] = "@";
-  return rows.map((r) => r.join("")).join("\n");
+  const pc = at(p.x, p.y);
+  if (pc) {
+    pc.glyph = FACING_GLYPH(p.facing);
+    pc.kind = "player";
+    pc.blocking = p.blocking;
+  }
+  return grid;
+}
+
+/** Plain-text render (back-compat / debugging), built from arenaCells. */
+export function renderArena(arena) {
+  return arenaCells(arena)
+    .map((row) => row.map((c) => c.glyph).join(""))
+    .join("\n");
 }

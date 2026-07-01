@@ -1,9 +1,9 @@
 // Pure game-state logic. No DOM, no localStorage, no Date/Math.random.
 // The browser-facing save wrapper lives in save.js; timing/RNG live in main.js.
 
-import { CONFIG, SHOP } from "./content.js";
+import { CONFIG, SHOP, DISCOVERIES } from "./content.js";
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 const SHOP_BY_ID = Object.fromEntries(SHOP.map((i) => [i.id, i]));
 
@@ -19,14 +19,17 @@ export function newGame() {
     armour: null, // { id, name, maxHp, defense }
     inv: { tonic: 0 }, // consumables
     bought: {}, // itemId -> true (once) or count (repeatable)
+    // Progression is discovery-driven; these flags are flipped by discoveries
+    // and quest rewards, never by signposted buttons/thresholds.
     flags: {
-      eatRevealed: false,
-      shopRevealed: false,
-      pierPrompt: false, // pier button visible (after first weapon)
-      adventureUnlocked: false, // Adventure tab visible (after walking the pier)
-      canneryUnlocked: false, // "Can (10) fish" available (story reward)
+      eatRevealed: false, // discovered by clicking the word "fish"
+      shopRevealed: false, // discovered by clicking the bobbing bottle
+      adventureUnlocked: false, // discovered by following the pier (weapon in hand)
+      canneryUnlocked: false, // the deed, found by clearing the Docks
       docksCleared: false,
     },
+    discovered: {}, // discoveryId -> true (idempotency)
+    found: [], // cryptic found-object ids, in order
     stats: { eats: 0 },
   };
 }
@@ -38,6 +41,8 @@ function clone(s) {
     inv: { ...s.inv },
     bought: { ...s.bought },
     flags: { ...s.flags },
+    discovered: { ...s.discovered },
+    found: [...(s.found || [])],
     stats: { ...s.stats },
     weapon: s.weapon ? { ...s.weapon } : null,
     armour: s.armour ? { ...s.armour } : null,
@@ -50,15 +55,12 @@ export function fishPerSec(state) {
 }
 
 /**
- * Advance the game by `seconds`. Accrues fish, flips reveal flags at their
- * thresholds, and runs any automatic canning (bounded by available fish).
+ * Advance the game by `seconds`. Accrues fish and runs any automatic canning
+ * (bounded by available fish). Reveals are discovery-driven, not thresholded.
  */
 export function tick(state, seconds) {
   const s = clone(state);
   s.fish += fishPerSec(s) * seconds;
-
-  if (s.fish >= CONFIG.revealEatAt) s.flags.eatRevealed = true;
-  if (s.fish >= CONFIG.revealShopAt) s.flags.shopRevealed = true;
 
   if (s.flags.canneryUnlocked && s.autoCanRate > 0) {
     const cans = Math.min(s.autoCanRate * seconds, s.fish / CONFIG.canCostFish);
@@ -123,10 +125,7 @@ export function buyItem(state, id) {
   const e = item.effect || {};
   if (e.fishRate) s.fishRateBonus += e.fishRate;
   if (e.autoCanRate) s.autoCanRate += e.autoCanRate;
-  if (e.weapon) {
-    s.weapon = { ...e.weapon };
-    if (!s.flags.pierPrompt) s.flags.pierPrompt = true; // first weapon → pier beat
-  }
+  if (e.weapon) s.weapon = { ...e.weapon };
   if (e.armour) s.armour = { ...e.armour };
   if (e.consumable) {
     for (const [k, v] of Object.entries(e.consumable)) {
@@ -140,23 +139,33 @@ export function buyItem(state, id) {
   return s;
 }
 
-/** Walk to the end of the pier — reveals the Adventure tab. */
-export function walkPier(state) {
-  if (!state.flags.pierPrompt) return state;
+/**
+ * Apply a discovery by id: idempotently flip its unlock flags and record any
+ * cryptic found-object it yields. Discoveries are how progression happens now —
+ * triggered by noticing/experimenting (clicks, typed words, ambient events),
+ * wired in main.js. Returns state unchanged if unknown or already discovered.
+ */
+export function triggerDiscovery(state, id) {
+  const d = DISCOVERIES[id];
+  if (!d || state.discovered[id]) return state;
   const s = clone(state);
-  s.flags.adventureUnlocked = true;
+  s.discovered[id] = true;
+  if (d.flags) Object.assign(s.flags, d.flags);
+  if (d.found) s.found.push(d.found);
   return s;
 }
 
 /**
  * Apply a quest reward: grant fish, set an unlock flag (e.g. canneryUnlocked)
- * and/or a "cleared" flag. This is how core systems are earned diegetically.
+ * and/or a "cleared" flag, and record a found object. Core systems are earned
+ * diegetically, delivered as cryptic found objects rather than announcements.
  */
 export function applyReward(state, reward = {}) {
   const s = clone(state);
   if (reward.fish) s.fish += reward.fish;
   if (reward.unlockFlag) s.flags[reward.unlockFlag] = true;
   if (reward.clearsFlag) s.flags[reward.clearsFlag] = true;
+  if (reward.found) s.found.push(reward.found);
   return s;
 }
 
@@ -178,6 +187,8 @@ export function migrate(save) {
     inv: { ...fresh.inv, ...(s.inv || {}) },
     bought: { ...fresh.bought, ...(s.bought || {}) },
     flags: { ...fresh.flags, ...(s.flags || {}) },
+    discovered: { ...fresh.discovered, ...(s.discovered || {}) },
+    found: Array.isArray(s.found) ? [...s.found] : [],
     stats: { ...fresh.stats, ...(s.stats || {}) },
     weapon: s.weapon || null,
     armour: s.armour || null,
