@@ -6,7 +6,7 @@ import {
   canFish,
   eatAllFish,
   buyItem,
-  walkPier,
+  triggerDiscovery,
   applyReward,
   afterCombat,
 } from "./state.js";
@@ -16,13 +16,23 @@ import { format } from "./format.js";
 import {
   CONFIG,
   DOCKS,
-  STORY,
+  DISCOVERIES,
+  CLUES,
   FLAVOUR,
   EAT_MESSAGES,
   FOUND,
   CREDIT_WHISPERS,
 } from "./content.js";
-import { show, hide, setText, renderShop, renderArenaInto, createInput } from "./ui.js";
+import {
+  show,
+  hide,
+  setText,
+  renderShop,
+  renderArenaInto,
+  setupArenaGrid,
+  spawnFx,
+  createInput,
+} from "./ui.js";
 
 const IDLE_MS = 200;
 const FLAVOUR_MS = 9000;
@@ -37,7 +47,9 @@ const refs = {
   tins: el("tins"),
   tinsWrap: el("tins-wrap"),
   flavour: el("flavour"),
-  story: el("story"),
+  fishWord: el("fish-word"),
+  tideBottle: el("tide-bottle"),
+  pierClue: el("pier-clue"),
   whisper: el("whisper"),
   tabSea: el("tab-sea"),
   tabShop: el("tab-shop"),
@@ -47,15 +59,20 @@ const refs = {
   panelAdventure: el("panel-adventure"),
   eatBtn: el("eat-btn"),
   canBtn: el("can-btn"),
-  pierBtn: el("pier-btn"),
   shopList: el("shop-list"),
   adventureIntro: el("adventure-intro"),
   adventureDesc: el("adventure-desc"),
   enterBtn: el("enter-btn"),
   arenaWrap: el("arena-wrap"),
+  arenaStage: el("arena-stage"),
   arena: el("arena"),
+  arenaFx: el("arena-fx"),
   playerHp: el("player-hp"),
   playerMaxHp: el("player-maxhp"),
+  playerHpFill: el("player-hpfill"),
+  targetHpbar: el("target-hpbar"),
+  targetHpFill: el("target-hpfill"),
+  targetText: el("target-text"),
   combatTins: el("combat-tins"),
   combatTonics: el("combat-tonics"),
   combatLog: el("combat-log"),
@@ -86,14 +103,6 @@ for (const [name, tab] of [["sea", refs.tabSea], ["shop", refs.tabShop], ["adven
 
 // --- Reveal / core refresh --------------------------------------------------
 
-function currentStory() {
-  const f = state.flags;
-  if (f.canneryUnlocked) return STORY.canneryReveal;
-  if (f.pierPrompt && !f.adventureUnlocked) return STORY.pierPrompt;
-  if (f.shopRevealed) return STORY.shopReveal;
-  return STORY.intro;
-}
-
 function refreshCore() {
   const f = state.flags;
   setText(refs.fish, format(state.fish));
@@ -107,15 +116,38 @@ function refreshCore() {
   refs.canBtn.classList.toggle("hidden", !f.canneryUnlocked);
   refs.canBtn.disabled = state.fish < CONFIG.canCostFish;
 
-  const showPier = f.pierPrompt && !f.adventureUnlocked;
-  refs.pierBtn.classList.toggle("hidden", !showPier);
+  // The bobbing bottle: appears once there's something to notice, until taken.
+  const showBottle = state.fish >= CONFIG.bottleNoticeAt && !f.shopRevealed;
+  refs.tideBottle.classList.toggle("hidden", !showBottle);
+  if (showBottle && !refs.tideBottle.textContent) setText(refs.tideBottle, CLUES.bottle);
 
-  setText(refs.story, currentStory());
+  // The pier clue: appears once you're armed and haven't found the way yet.
+  const showPier = !!state.weapon && !f.adventureUnlocked;
+  refs.pierClue.classList.toggle("hidden", !showPier);
+  if (showPier && !refs.pierClue.textContent) setText(refs.pierClue, CLUES.pier);
 
   if (activePanel === "shop") renderShop(refs.shopList, state, onBuy);
 }
 
-// --- Actions ----------------------------------------------------------------
+// --- Discovery + actions ----------------------------------------------------
+
+// Fire a discovery; on first trigger, whisper its oblique note.
+function discover(id) {
+  const before = state;
+  state = triggerDiscovery(state, id);
+  if (state !== before) {
+    setText(refs.whisper, DISCOVERIES[id].note);
+    save(state);
+    refreshCore();
+  }
+}
+
+refs.fishWord.addEventListener("click", () => discover("theEat"));
+refs.tideBottle.addEventListener("click", () => discover("market"));
+refs.pierClue.addEventListener("click", () => {
+  discover("thePier");
+  if (state.flags.adventureUnlocked) setPanel("adventure");
+});
 
 function onBuy(id) {
   const before = state;
@@ -144,13 +176,6 @@ refs.canBtn.addEventListener("click", () => {
   }
 });
 
-refs.pierBtn.addEventListener("click", () => {
-  state = walkPier(state);
-  save(state);
-  refreshCore();
-  setPanel("adventure");
-});
-
 refs.resetBtn.addEventListener("click", () => {
   if (!confirm("Start over? This empties your bucket and your tins.")) return;
   clear();
@@ -177,24 +202,53 @@ window.addEventListener("keydown", (e) => {
 // --- Combat -----------------------------------------------------------------
 
 function logFor(events) {
+  // Priority: the punchiest event this frame wins the log line.
+  for (const ev of events) if (ev.type === "death") return `${ev.name} is done for.`;
   for (const ev of events) {
-    if (ev.type === "death") return `${ev.name} is done for.`;
     if (ev.type === "wave") return "Something worse arrives.";
     if (ev.type === "heal") return "You drink the brine tonic.";
-    if (ev.type === "throw") return "You hurl a tin.";
     if (ev.type === "noTins") return "No tins left to throw.";
-    if (ev.type === "block") return `You turn aside ${ev.name}.`;
+    if (ev.type === "blocked") return `You turn aside ${ev.name}.`;
+    if (ev.type === "miss") return `You slip past ${ev.name}.`;
+    if (ev.type === "windup") return "Something winds up to strike…";
     if (ev.type === "hit" && ev.target === "player") return `${ev.name} gets you for ${ev.dmg}.`;
   }
   return null;
+}
+
+// The enemy the player is aiming at (faced tile), else the nearest one.
+function currentTarget() {
+  const p = arena.player;
+  const faced = arena.enemies.find((e) => e.x === p.x + p.facing.dx && e.y === p.y + p.facing.dy);
+  if (faced) return faced;
+  let best = null;
+  let bestD = Infinity;
+  for (const e of arena.enemies) {
+    const d = Math.abs(e.x - p.x) + Math.abs(e.y - p.y);
+    if (d < bestD) {
+      bestD = d;
+      best = e;
+    }
+  }
+  return best;
 }
 
 function updateCombatHud() {
   const p = arena.player;
   setText(refs.playerHp, Math.max(0, Math.ceil(p.hp)));
   setText(refs.playerMaxHp, p.maxHp);
+  refs.playerHpFill.style.width = `${Math.max(0, (p.hp / p.maxHp) * 100)}%`;
   setText(refs.combatTins, arena.resources.tins - arena.used.tins);
   setText(refs.combatTonics, arena.resources.tonics - arena.used.tonics);
+
+  const t = currentTarget();
+  if (t) {
+    show(refs.targetHpbar);
+    refs.targetHpFill.style.width = `${Math.max(0, (t.hp / t.maxHp) * 100)}%`;
+    setText(refs.targetText, `${t.name} ${Math.max(0, Math.ceil(t.hp))}/${t.maxHp}`);
+  } else {
+    hide(refs.targetHpbar);
+  }
 }
 
 let lastFrame = 0;
@@ -206,6 +260,12 @@ function combatFrame(now) {
   const result = stepArena(arena, dt, input.snapshot());
   arena = result.arena;
   renderArenaInto(refs.arena, arena);
+  const playerHit = spawnFx(refs.arenaFx, arena, result.events);
+  if (playerHit) {
+    refs.arenaStage.classList.remove("shake");
+    void refs.arenaStage.offsetWidth;
+    refs.arenaStage.classList.add("shake");
+  }
   updateCombatHud();
   const line = logFor(result.events);
   if (line) setText(refs.combatLog, line);
@@ -226,6 +286,9 @@ function startCombat() {
   hide(refs.adventureIntro);
   show(refs.arenaWrap);
   setText(refs.combatLog, "The planks creak underfoot.");
+  refs.arenaFx.textContent = "";
+  setupArenaGrid(refs.arenaFx, arena);
+  refs.arenaFx._w = arena.width;
   renderArenaInto(refs.arena, arena);
   updateCombatHud();
 

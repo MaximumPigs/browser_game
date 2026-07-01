@@ -11,14 +11,15 @@
     <main class="box">
       <h1 id="title">Fish Box</h1>
 
-      <!-- Resource readout -->
+      <!-- Resource readout ("fish" is a quiet clickable clue) -->
       <p class="resources">
-        You have <span id="fish">0</span> fish.<span id="tins-wrap" class="hidden">
+        You have <span id="fish">0</span> <span id="fish-word" class="clue">fish</span>.<span id="tins-wrap" class="hidden">
         You have <span id="tins">0</span> tins.</span>
       </p>
 
-      <!-- Flavour ticker -->
+      <!-- Flavour ticker + ambient clickable events (the bobbing bottle) -->
       <p class="flavour" id="flavour"></p>
+      <p class="tide"><span id="tide-bottle" class="clue hidden"></span></p>
 
       <!-- Tabs (revealed as the game opens up) -->
       <nav class="tabs" id="tabs">
@@ -29,12 +30,11 @@
 
       <!-- The Sea (main) -->
       <section class="panel" id="panel-sea">
-        <p class="story" id="story"></p>
         <div class="actions">
           <button type="button" id="eat-btn" class="hidden">Eat all your fish (raw)</button>
           <button type="button" id="can-btn" class="hidden">Can (10) fish</button>
-          <button type="button" id="pier-btn" class="hidden">Walk to the end of the pier…</button>
         </div>
+        <p class="pier-clue"><span id="pier-clue" class="clue hidden"></span></p>
         <p class="whisper" id="whisper"></p>
       </section>
 
@@ -51,12 +51,23 @@
           <button type="button" id="enter-btn">Enter The Docks</button>
         </div>
         <div id="arena-wrap" class="hidden">
-          <pre id="arena" class="arena" aria-label="combat arena"></pre>
-          <p class="combat-hud">
-            HP <span id="player-hp">0</span>/<span id="player-maxhp">0</span>
-            &middot; tins <span id="combat-tins">0</span>
-            &middot; tonics <span id="combat-tonics">0</span>
-          </p>
+          <div class="arena-stage" id="arena-stage">
+            <div id="arena" class="arena" tabindex="0" aria-label="combat arena"></div>
+            <div id="arena-fx" class="arena-fx" aria-hidden="true"></div>
+          </div>
+          <div class="combat-hud">
+            <div class="hpbar hpbar-player" id="player-hpbar">
+              <span class="hpbar-fill" id="player-hpfill"></span>
+              <span class="hpbar-text">you <span id="player-hp">0</span>/<span id="player-maxhp">0</span></span>
+            </div>
+            <div class="hpbar hpbar-enemy hidden" id="target-hpbar">
+              <span class="hpbar-fill" id="target-hpfill"></span>
+              <span class="hpbar-text" id="target-text"></span>
+            </div>
+            <p class="combat-meta">
+              tins <span id="combat-tins">0</span> &middot; tonics <span id="combat-tonics">0</span>
+            </p>
+          </div>
           <p class="combat-log" id="combat-log">&nbsp;</p>
           <p class="controls-hint">
             move: WASD/arrows &middot; attack: Space/J &middot; block: K/Shift

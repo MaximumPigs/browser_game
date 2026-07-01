@@ -192,23 +192,143 @@ button.secondary {
 }
 
 /* Adventure / arena */
-.arena {
+:root {
+  --cell: 1.15rem;
+}
+
+.arena-stage {
+  position: relative;
+  display: inline-block;
   background: var(--arena-bg);
-  color: var(--arena-ink);
-  padding: 0.75rem;
+  padding: 0.6rem;
   border-radius: 8px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 1rem;
-  line-height: 1.05;
-  letter-spacing: 0.06em;
   overflow-x: auto;
-  white-space: pre;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.arena,
+.arena-fx {
+  display: grid;
   outline: none;
 }
 
-.combat-hud {
+.arena-fx {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  pointer-events: none;
+}
+
+.cell {
+  width: var(--cell);
+  height: var(--cell);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--arena-ink);
+}
+
+.cell.k-wall { color: #3a444a; }
+.cell.k-floor { color: #22292d; }
+.cell.k-enemy { color: #e8b04b; font-weight: bold; }
+.cell.k-tin { color: #cfe8e0; }
+.cell.k-player { color: #7fe3c9; font-weight: bold; }
+
+/* Facing target highlight */
+.cell.aim { background: rgba(127, 227, 201, 0.14); border-radius: 3px; }
+
+/* Player braced */
+.cell.blocking { color: #9fd0ff; text-shadow: 0 0 6px rgba(159, 208, 255, 0.9); }
+
+/* Enemy about to strike, and the tile it will hit */
+.cell.winding { color: #ff7a6b; }
+.cell.telegraph {
+  background: rgba(226, 74, 58, 0.35);
+  border-radius: 3px;
+  animation: telegraph 0.4s ease-in-out infinite;
+}
+
+@keyframes telegraph {
+  0%, 100% { background: rgba(226, 74, 58, 0.22); }
+  50% { background: rgba(226, 74, 58, 0.6); }
+}
+
+/* Transient FX (overlay) */
+.fx {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: bold;
-  margin: 0.5rem 0 0.25rem;
+  pointer-events: none;
+}
+.fx-strike { color: #fff; animation: fx-strike 0.22s ease-out forwards; }
+.fx-dmg { color: #ffd98a; animation: fx-float 0.7s ease-out forwards; }
+.fx-dmg-player { color: #ff6a5a; animation: fx-float 0.7s ease-out forwards; }
+.fx-block { color: #9fd0ff; animation: fx-strike 0.35s ease-out forwards; }
+.fx-death { color: #ff6a5a; animation: fx-strike 0.4s ease-out forwards; }
+
+@keyframes fx-strike {
+  0% { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@keyframes fx-float {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-1.3rem); opacity: 0; }
+}
+
+.arena-stage.shake { animation: shake 0.25s ease-in-out; }
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-3px, 1px); }
+  50% { transform: translate(3px, -1px); }
+  75% { transform: translate(-2px, -1px); }
+}
+
+/* HP bars */
+.combat-hud {
+  margin: 0.6rem 0 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.hpbar {
+  position: relative;
+  height: 1.15rem;
+  background: #e5e0d4;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+  max-width: 320px;
+}
+
+.hpbar-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  transform-origin: left;
+  transition: width 0.12s linear;
+}
+
+.hpbar-player .hpbar-fill { background: #7cc4a6; }
+.hpbar-enemy .hpbar-fill { background: #e6a24b; }
+
+.hpbar-text {
+  position: relative;
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.15rem;
+  text-align: center;
+  color: #2a2620;
+  font-weight: bold;
+}
+
+.combat-meta {
+  margin: 0.1rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .combat-log {
@@ -220,6 +340,14 @@ button.secondary {
 .controls-hint {
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cell.telegraph,
+  .fx,
+  .arena-stage.shake {
+    animation: none;
+  }
 }
 
 /* Footer */
@@ -241,6 +369,46 @@ button.secondary {
 
 .hidden {
   display: none !important;
+}
+
+/* Discoverable clues — subtle affordance, no instructions */
+.clue {
+  cursor: pointer;
+  border-bottom: 1px dotted transparent;
+}
+.clue:hover {
+  border-bottom-color: var(--muted);
+}
+
+#fish-word.clue {
+  border-bottom: none;
+}
+#fish-word.clue:hover {
+  color: var(--accent);
+}
+
+.tide,
+.pier-clue {
+  min-height: 1.3em;
+  margin: 0.35rem 0;
+  color: var(--muted);
+  font-style: italic;
+}
+
+#tide-bottle {
+  animation: bob 2.2s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #tide-bottle {
+    animation: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

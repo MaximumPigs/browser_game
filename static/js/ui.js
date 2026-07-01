@@ -1,7 +1,7 @@
 // DOM-facing render helpers + keyboard input sampling. Impure (touches the DOM
 // and window), but leans on pure modules for content and rendering.
 
-import { renderArena as arenaToString } from "./combat.js";
+import { arenaCells } from "./combat.js";
 import { SHOP } from "./content.js";
 import { format } from "./format.js";
 import { isOffered, isSoldOut, canAfford } from "./state.js";
@@ -12,9 +12,82 @@ export const setText = (el, t) => {
   if (el) el.textContent = t;
 };
 
-/** Render the arena grid into a <pre>. */
-export function renderArenaInto(preEl, arena) {
-  preEl.textContent = arenaToString(arena);
+/** Size a grid element to the arena's dimensions (columns via CSS var --cell). */
+export function setupArenaGrid(gridEl, arena) {
+  gridEl.style.gridTemplateColumns = `repeat(${arena.width}, var(--cell))`;
+  gridEl.style.gridTemplateRows = `repeat(${arena.height}, var(--cell))`;
+}
+
+/**
+ * Render the arena into a grid of <span> cells (created once, updated in place).
+ * Steady state only — transient hit/strike effects go through spawnFx().
+ */
+export function renderArenaInto(gridEl, arena) {
+  const w = arena.width;
+  const h = arena.height;
+  if (gridEl._w !== w || gridEl._h !== h) {
+    setupArenaGrid(gridEl, arena);
+    gridEl.textContent = "";
+    const cells = [];
+    for (let i = 0; i < w * h; i++) {
+      const s = document.createElement("span");
+      s.className = "cell";
+      gridEl.append(s);
+      cells.push(s);
+    }
+    gridEl._cells = cells;
+    gridEl._w = w;
+    gridEl._h = h;
+  }
+  const grid = arenaCells(arena);
+  const cells = gridEl._cells;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const c = grid[y][x];
+      const el = cells[y * w + x];
+      el.textContent = c.glyph;
+      let cls = "cell k-" + c.kind;
+      if (c.aim) cls += " aim";
+      if (c.telegraph) cls += " telegraph";
+      if (c.blocking) cls += " blocking";
+      if (c.winding) cls += " winding";
+      el.className = cls;
+    }
+  }
+}
+
+/**
+ * Spawn transient, self-removing effect glyphs over the arena (a separate grid
+ * overlay so the steady renderer never clobbers them). Returns true if the
+ * player was struck this frame (so the caller can shake the stage).
+ */
+export function spawnFx(fxEl, arena, events) {
+  if (fxEl._w !== arena.width) {
+    setupArenaGrid(fxEl, arena);
+    fxEl._w = arena.width;
+  }
+  const put = (x, y, text, cls) => {
+    const s = document.createElement("span");
+    s.className = "fx " + cls;
+    s.textContent = text;
+    s.style.gridColumn = x + 1;
+    s.style.gridRow = y + 1;
+    fxEl.append(s);
+    s.addEventListener("animationend", () => s.remove(), { once: true });
+  };
+  let playerHit = false;
+  for (const ev of events) {
+    if (ev.type === "strike") put(ev.x, ev.y, "✳", "fx-strike");
+    else if (ev.type === "hit" && ev.target === "enemy") put(ev.x, ev.y, `-${ev.dmg}`, "fx-dmg");
+    else if (ev.type === "hit" && ev.target === "player") {
+      put(ev.x, ev.y, `-${ev.dmg}`, "fx-dmg-player");
+      playerHit = true;
+    } else if (ev.type === "blocked") {
+      const p = arena.player;
+      put(p.x + p.facing.dx, p.y + p.facing.dy, "✦", "fx-block");
+    } else if (ev.type === "death") put(ev.x, ev.y, "✖", "fx-death");
+  }
+  return playerHit;
 }
 
 function costLabel(cost = {}) {
